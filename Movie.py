@@ -1,68 +1,38 @@
 import streamlit as st
+import requests
 import pandas as pd
-import matplotlib.pyplot as plt
 
-# -----------------------
-# ตั้งค่าหน้าเว็บ
-# -----------------------
-st.set_page_config(page_title="วิเคราะห์ภาพยนตร์ยอดนิยม", layout="wide")
+st.title("📺 Rotten Tomatoes Newest TV Series")
 
-st.title("🎬 วิเคราะห์ภาพยนตร์ยอดนิยม")
-st.write("ระบบวิเคราะห์ข้อมูลภาพยนตร์จากคะแนนรีวิวและรายได้")
+url = "https://www.rottentomatoes.com/napi/browse/tv_series_browse/sort:newest"
+res = requests.get(url)
 
-# -----------------------
-# ข้อมูลตัวอย่าง
-# -----------------------
-data = {
-    "ชื่อภาพยนตร์": [
-        "Avengers: Endgame",
-        "Titanic",
-        "Avatar",
-        "The Dark Knight",
-        "Parasite"
-    ],
-    "ประเภท": ["Action", "Romance", "Sci-Fi", "Action", "Drama"],
-    "คะแนนรีวิว": [8.4, 7.9, 7.8, 9.0, 8.6],
-    "รายได้ (ล้านดอลลาร์)": [2798, 2187, 2923, 1005, 263]
-}
+if res.status_code == 200:
+    data = res.json()
 
-df = pd.DataFrame(data)
+    items = data.get("results", [])
 
-# -----------------------
-# แสดงตารางข้อมูล
-# -----------------------
-st.subheader("📊 ตารางข้อมูลภาพยนตร์")
-st.dataframe(df)
+    movies = []
+    for item in items:
+        title = item.get("title")
+        year = item.get("year")
+        score = item.get("tomatometerScore")
+        poster = item.get("posterImageUrl")
 
-# -----------------------
-# เลือกประเภทหนัง
-# -----------------------
-genre = st.selectbox("เลือกประเภทภาพยนตร์", df["ประเภท"].unique())
-filtered_df = df[df["ประเภท"] == genre]
+        movies.append({
+            "Title": title,
+            "Year": year,
+            "Score": score,
+            "Poster": poster
+        })
 
-# -----------------------
-# กราฟคะแนนรีวิว
-# -----------------------
-st.subheader("⭐ กราฟคะแนนรีวิว")
+    df = pd.DataFrame(movies)
 
-fig1, ax1 = plt.subplots()
-ax1.bar(filtered_df["ชื่อภาพยนตร์"], filtered_df["คะแนนรีวิว"])
-ax1.set_ylabel("คะแนนรีวิว")
-ax1.set_xlabel("ชื่อภาพยนตร์")
-plt.xticks(rotation=45)
-st.pyplot(fig1)
+    st.dataframe(df)
 
-# -----------------------
-# กราฟรายได้
-# -----------------------
-st.subheader("💰 กราฟรายได้")
-
-fig2, ax2 = plt.subplots()
-ax2.bar(filtered_df["ชื่อภาพยนตร์"], filtered_df["รายได้ (ล้านดอลลาร์)"])
-ax2.set_ylabel("รายได้ (ล้านดอลลาร์)")
-ax2.set_xlabel("ชื่อภาพยนตร์")
-plt.xticks(rotation=45)
-st.pyplot(fig2)
-
-st.success("วิเคราะห์เสร็จสิ้น ✔️")
-
+    for m in movies:
+        st.image(m["Poster"], width=150)
+        st.write(f"**{m['Title']} ({m['Year']})**  ⭐ {m['Score']}")
+        st.markdown("---")
+else:
+    st.error("ไม่สามารถดึงข้อมูลจาก Rotten Tomatoes ได้")
