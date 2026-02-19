@@ -37,5 +37,6 @@ Streamlit นี้พัฒนาเพื่อแสดงข้อมูล�
 
 1. **Clone repository นี้:**
    ```bash
-   git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-   cd your-repo-name
+   git clone https://github.com/Patcaraporn-N/Design-Thinking-2025.git
+   cd Design-Thinking-2025
+
