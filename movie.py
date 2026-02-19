@@ -42,6 +42,8 @@ finally:
     # 5. ปิด Browser
     driver.quit()
 
+import streamlit as st
+import pandas as pd
 st.title("📂 อัปโหลดไฟล์ CSV")
 
 uploaded_file = st.file_uploader("เลือกไฟล์ CSV", type=["csv"])
