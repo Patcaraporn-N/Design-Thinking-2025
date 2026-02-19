@@ -65,3 +65,4 @@ plt.xticks(rotation=45)
 st.pyplot(fig2)
 
 st.success("วิเคราะห์เสร็จสิ้น ✔️")
+
