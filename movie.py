@@ -42,3 +42,11 @@ finally:
     # 5. ปิด Browser
     driver.quit()
 
+st.title("📂 อัปโหลดไฟล์ CSV")
+
+uploaded_file = st.file_uploader("เลือกไฟล์ CSV", type=["csv"])
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.success("โหลดไฟล์สำเร็จ ✅")
+    st.dataframe(df)
