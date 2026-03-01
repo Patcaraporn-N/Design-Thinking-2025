@@ -4,7 +4,7 @@ import requests
 
 st.set_page_config(page_title="Movie Review", layout="wide")
 
-API_KEY = "86f6075c"
+API_KEY = ""
 
 # ---------------- CSS ----------------
 st.markdown("""
