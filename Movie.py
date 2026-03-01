@@ -1,179 +1,129 @@
-import pandas as pd
-import matplotlib.pyplot as plt
 import streamlit as st
+import pandas as pd
 import requests
-import random
 
-st.set_page_config(page_title="Mini Netflix", layout="wide")
+st.set_page_config(page_title="Movie Review", layout="wide")
 
-# ---------------------------
-# โหลดหนังจาก OMDb ฟรี (ไม่ต้อง API Key)
-# ---------------------------
-@st.cache_data
-def load_movies():
-    sample_titles = [
-        "Avengers","Batman","Superman","Spider Man","Iron Man",
-        "Frozen","Titanic","Inception","Interstellar","Joker",
-        "Harry Potter","Lord of the Rings","Fast and Furious",
-        "Transformers","Mission Impossible","John Wick",
-        "Parasite","Train to Busan","Top Gun","Dune",
-        "Barbie","Oppenheimer","Matrix","Gladiator","Whiplash",
-        "The Conjuring","Insidious","Annabelle","The Nun",
-        "Coco","Up","Toy Story","Aladdin","Mulan",
-        "Shutter Island","Fight Club","The Prestige",
-        "The Dark Knight","The Godfather"
-    ]
+API_KEY = "86f6075c"
 
-    movies = []
+# ---------------- CSS ----------------
+st.markdown("""
+<style>
+.stApp { background-color: #0f172a; }
+h1 { color: #f8fafc; font-weight:600; }
+body, p, div { color: #e2e8f0; }
 
-    for title in sample_titles:
-        url = f"http://www.omdbapi.com/?apikey=thewdb&t={title}"
-        try:
-            res = requests.get(url, timeout=5)
-            data = res.json()
-            if data.get("Response") == "True":
-                movies.append(data)
-        except:
-            pass
+.notice {
+    background: linear-gradient(135deg,#b8860b,#d4af37);
+    color:#1a1a1a;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+    font-size:14px;
+}
 
-    # ทำซ้ำให้ได้เยอะขึ้น
-    movies = movies * 5  # ได้ประมาณ 200 เรื่อง
-    random.shuffle(movies)
-    return movies
+.movie-title {
+    font-size:17px;
+    font-weight:600;
+    margin-top:10px;
+    min-height:45px;
+}
 
-movies = load_movies()
+.rating {
+    color:#facc15;
+    font-size:15px;
+    margin-bottom:30px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------------------
-# Session
-# ---------------------------
-if "watchlist" not in st.session_state:
-    st.session_state.watchlist = []
+# ---------------- Notice ----------------
+st.markdown("""
+<div class="notice">
+เว็บไซต์นี้จัดทำขึ้นเพื่อการศึกษาเท่านั้น ไม่ได้มีวัตถุประสงค์เพื่อการพาณิชย์<br>
+This website is created for educational purposes only and not for commercial use.
+</div>
+""", unsafe_allow_html=True)
 
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
+st.title("🎬 Movie Review Website")
 
-# ---------------------------
-# Sidebar
-# ---------------------------
-st.sidebar.title("🎬 Mini Netflix")
+# ---------------- Load CSV ----------------
+df = pd.read_csv("movie.csv")
 
-if st.sidebar.button("🏠 Home"):
-    st.session_state.page = "Home"
+# แปลงคะแนน
+df["Score"] = df["Critics' Score"].replace("No rating", "-")
 
-if st.sidebar.button("❤️ My Watchlist"):
-    st.session_state.page = "Watchlist"
+df["Score_clean"] = (
+    df["Score"]
+    .replace("-", None)
+    .str.replace("%","",regex=False)
+)
 
-if st.sidebar.button("🗑 Clear Watchlist"):
-    st.session_state.watchlist = []
+df["Score_clean"] = pd.to_numeric(df["Score_clean"], errors="coerce")
 
-if st.sidebar.button("📊 Analytics"):
-    st.session_state.page = "Analytics"
+# ---------------- ดาว ----------------
+def make_stars(score):
+    if pd.isna(score):
+        return "-"
+    return "⭐" * round(score / 20)
 
-uploaded_file = st.sidebar.file_uploader("rotten_tomatoes_movies.csv", type=["csv"])
+# ---------------- Cache Poster ----------------
+@st.cache_data(show_spinner=False)
+def get_poster(title):
+    try:
+        url = f"https://www.omdbapi.com/?t={title}&apikey={API_KEY}"
+        res = requests.get(url, timeout=5).json()
+        if res.get("Response") == "True":
+            return res.get("Poster")
+    except:
+        pass
+    return None
 
-search = st.sidebar.text_input("🔎 Search")
+# ---------------- Search ----------------
+search = st.text_input("🔎 ค้นหาชื่อภาพยนตร์")
 
-# ---------------------------
-# Functions
-# ---------------------------
-def toggle_watchlist(movie):
-    if movie in st.session_state.watchlist:
-        st.session_state.watchlist.remove(movie)
-    else:
-        st.session_state.watchlist.append(movie)
+if search:
+    filtered = df[df["Title"].str.contains(search, case=False, na=False)]
+else:
+    filtered = df
 
-def show_movies(movie_list):
-    cols = st.columns(5)
+# ---------------- No result ----------------
+if search and filtered.empty:
+    st.warning("ไม่พบภาพยนตร์ที่ตรงกับคำค้นหา")
 
-    for i, movie in enumerate(movie_list):
-        with cols[i % 5]:
-            poster = movie.get("Poster")
-            if poster and poster != "N/A":
-                st.image(poster)
-            else:
-                st.image("https://via.placeholder.com/300x450?text=No+Image")
+    if st.button("⬅ กลับหน้าหลัก"):
+        st.rerun()
 
-            st.write(f"**{movie.get('Title')} ({movie.get('Year')})**")
+# ---------------- Show movies ----------------
+else:
 
-            if movie in st.session_state.watchlist:
-                if st.button("Remove ❤️", key=f"r_{movie['imdbID']}_{i}"):
-                    toggle_watchlist(movie)
-            else:
-                if st.button("Add ❤️", key=f"a_{movie['imdbID']}_{i}"):
-                    toggle_watchlist(movie)
-
-# ---------------------------
-# UI
-# ---------------------------
-st.title("🔥 Mini Netflix Clone")
-
-if st.session_state.page == "Home":
-
-    filtered = movies
     if search:
-        filtered = [
-            m for m in movies
-            if search.lower() in m.get("Title","").lower()
-        ]
+        if st.button("⬅ กลับหน้าหลัก"):
+            st.rerun()
 
-    show_movies(filtered)
+    cols = st.columns(4)
 
-elif st.session_state.page == "Watchlist":
+    for i, row in enumerate(filtered.itertuples()):
 
-    st.header("❤️ My Watchlist")
+        with cols[i % 4]:
 
-    if not st.session_state.watchlist:
-        st.info("ยังไม่มีหนังใน Watchlist")
-    else:
-        show_movies(st.session_state.watchlist)
+            st.markdown(
+                f"<div class='movie-title'>{row.Title}</div>",
+                unsafe_allow_html=True
+            )
 
-elif st.session_state.page == "Analytics":
+            poster = get_poster(row.Title)
 
-    st.header("📊 Movie Data Analytics")
+            if poster and poster != "N/A":
+                st.image(poster, width=230)
+            else:
+                st.image("https://via.placeholder.com/300x450?text=No+Image", width=230)
 
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-
-        st.subheader("📄 ข้อมูลตัวอย่าง")
-        st.dataframe(df.head())
-
-        # -------------------------
-        # 1. ค่าเฉลี่ยคะแนน IMDb
-        # -------------------------
-        if "imdbRating" in df.columns:
-            df["imdbRating"] = pd.to_numeric(df["imdbRating"], errors="coerce")
-            avg_rating = df["imdbRating"].mean()
-            st.metric("⭐ Average IMDb Rating", round(avg_rating,2))
-
-        # -------------------------
-        # 2. จำนวนหนังตามปี
-        # -------------------------
-        if "Year" in df.columns:
-            year_count = df["Year"].value_counts().sort_index()
-
-            st.subheader("📈 Movies by Year")
-
-            fig1, ax1 = plt.subplots()
-            year_count.plot(kind="bar", ax=ax1)
-            ax1.set_xlabel("Year")
-            ax1.set_ylabel("Number of Movies")
-            st.pyplot(fig1)
-
-        # -------------------------
-        # 3. จำนวนหนังตาม Genre
-        # -------------------------
-        if "Genre" in df.columns:
-            genres = df["Genre"].str.split("|").explode()
-            genre_count = genres.value_counts()
-
-            st.subheader("🎭 Movies by Genre")
-
-            fig2, ax2 = plt.subplots()
-            genre_count.head(10).plot(kind="bar", ax=ax2)
-            ax2.set_xlabel("Genre")
-            ax2.set_ylabel("Count")
-            st.pyplot(fig2)
-
-    else:
-        st.info("กรุณาอัปโหลดไฟล์ CSV ก่อน")
-
+            if row.Score == "-":
+                st.markdown("<div class='rating'>-</div>", unsafe_allow_html=True)
+            else:
+                stars = make_stars(row.Score_clean)
+                st.markdown(
+                    f"<div class='rating'>{stars} {row.Score}</div>",
+                    unsafe_allow_html=True
+                )
